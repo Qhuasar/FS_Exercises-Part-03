@@ -5,7 +5,7 @@ const app = express();
 
 app.use(express.json());
 
-const persons = [
+let persons = [
   {
     id: 1,
     name: "Arto Hellas",
@@ -28,11 +28,20 @@ const persons = [
   },
 ];
 
+const generate_id = () => {
+  return Math.round(Math.random() * 100000);
+};
+
 app.get("/", (req, res) => {
   res.send("<h1>PhoneBook API</h1>");
 });
 
-app.get("/persons", (req, res) => {
+app.get("/info", (req, res) => {
+  res.send(`<p>Phonebook has info for ${persons.length} people</p>
+              <p>${new Date()}</p>`);
+});
+
+app.get("/api/persons", (req, res) => {
   if (persons) {
     res.json(persons);
   }
@@ -40,9 +49,37 @@ app.get("/persons", (req, res) => {
   res.status(404).end();
 });
 
-app.get("/info", (req, res) => {
-  res.send(`<p>Phonebook has info for ${persons.length} people</p>
-              <p>${new Date()}</p>`);
+app.post("/api/persons", (req, res) => {
+  const body = req.body;
+  if (!body.name || !body.number) {
+    res.status(400).json({ error: "malformed request body" });
+  } else if (persons.find((p) => p.name === body.name)) {
+    res.status(400).json({ error: "name must be unique" });
+  } else {
+    const new_person = {
+      name: body.name,
+      number: body.number,
+      id: generate_id(),
+    };
+    persons = persons.concat(new_person);
+    res.status(201).json(new_person);
+  }
+});
+
+app.get("/api/persons/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const person = persons.find((p) => p.id === id);
+  if (person !== undefined) {
+    res.json(person);
+  }
+  res.statusMessage = "Person doesn't exist";
+  res.status(404).end();
+});
+
+app.delete("/api/persons/:id", (req, res) => {
+  const id = Number(req.params.id);
+  persons = persons.filter((p) => p.id !== id);
+  res.status(204).end();
 });
 
 app.listen(process.env.PORT, () => {
