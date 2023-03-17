@@ -1,9 +1,25 @@
 const express = require("express");
 const dotenv = require("dotenv").config();
+const morgan = require("morgan");
 
 const app = express();
 
 app.use(express.json());
+
+app.use(
+  morgan(":method :url :status :res[content-length] - :response-time ms", {
+    skip: (req, res) => req.method === "POST",
+  })
+);
+
+app.use(
+  morgan(
+    ":method :url :status :res[content-length] - :response-time ms :body",
+    {
+      skip: (req, res) => req.method !== "POST",
+    }
+  )
+);
 
 let persons = [
   {
@@ -51,6 +67,7 @@ app.get("/api/persons", (req, res) => {
 
 app.post("/api/persons", (req, res) => {
   const body = req.body;
+  morgan.token("body", (req, res) => JSON.stringify(req.body));
   if (!body.name || !body.number) {
     res.status(400).json({ error: "malformed request body" });
   } else if (persons.find((p) => p.name === body.name)) {
@@ -81,6 +98,12 @@ app.delete("/api/persons/:id", (req, res) => {
   persons = persons.filter((p) => p.id !== id);
   res.status(204).end();
 });
+
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: "unknown endpoint" });
+};
+
+app.use(unknownEndpoint);
 
 app.listen(process.env.PORT, () => {
   console.log(`Listening on port ${process.env.PORT}`);
