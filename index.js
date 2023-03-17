@@ -32,12 +32,17 @@ app.get("/", (req, res) => {
   res.send("<h1>PhoneBook API</h1>");
 });
 
-app.get("/api/persons", (req, res) => {
+app.get("/persons", (req, res) => {
   if (persons) {
     res.json(persons);
   }
   res.statusMessage = "List is currently empty";
   res.status(404).end();
+});
+
+app.get("/info", (req, res) => {
+  res.send(`<p>Phonebook has info for ${persons.length} people</p>
+              <p>${new Date()}</p>`);
 });
 
 app.listen(process.env.PORT, () => {
