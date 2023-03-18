@@ -95,7 +95,7 @@ app.put("/api/persons/:id", (req, res) => {
   const id = req.params.id;
   const body = req.body;
   if (mongoose.isValidObjectId(id)) {
-    Person.findByIdAndUpdate(id, { number: req.body.number })
+    Person.findByIdAndUpdate(id, { number: req.body.number }, {new: true})
       .exec()
       .then((data) => {
         console.log(data);
