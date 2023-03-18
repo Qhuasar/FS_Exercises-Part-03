@@ -75,14 +75,39 @@ app.post("/api/persons", (req, res) => {
   morgan.token("body", (req, res) => JSON.stringify(req.body));
   if (!body.name || !body.number) {
     res.status(400).json({ error: "malformed request body" });
-  } else if (persons.find((p) => p.name === body.name)) {
-    res.status(400).json({ error: "name must be unique" });
   } else {
-    const new_person = new Person({
-      name: body.name,
-      number: body.number,
+    Person.find({ name: body.name }).then((persons_same_name) => {
+      console.log(persons_same_name);
+      if (!persons_same_name) {
+        res.status(400).json({ error: "name must be unique" });
+      } else {
+        const new_person = new Person({
+          name: body.name,
+          number: body.number,
+        });
+        new_person.save().then((saved_person) => res.json(saved_person));
+      }
     });
-    new_person.save().then((saved_person) => res.json(saved_person));
+  }
+});
+
+app.put("/api/persons/:id", (req, res) => {
+  const id = req.params.id;
+  const body = req.body;
+  if (mongoose.isValidObjectId(id)) {
+    Person.findByIdAndUpdate(id, { number: req.body.number })
+      .exec()
+      .then((data) => {
+        console.log(data);
+        res.status(200).json(data);
+      })
+      .catch((err) => {
+        console.log(err);
+        res.status(500).end();
+      });
+  } else {
+    res.statusMessage = "Id not valid";
+    res.status(400).exit();
   }
 });
 
