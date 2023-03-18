@@ -1,7 +1,9 @@
-const express = require("express");
 const dotenv = require("dotenv").config();
+const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
+const Person = require("./models/person");
+const mongoose = require("mongoose");
 
 const app = express();
 
@@ -46,25 +48,26 @@ let persons = [
   },
 ];
 
-const generate_id = () => {
-  return Math.round(Math.random() * 100000);
-};
-
 app.get("/", (req, res) => {
   res.send("<h1>PhoneBook API</h1>");
 });
 
 app.get("/info", (req, res) => {
-  res.send(`<p>Phonebook has info for ${persons.length} people</p>
-              <p>${new Date()}</p>`);
+  Person.find({}).then((people) =>
+    res.send(`<p>Phonebook has info for ${people.length} people</p>
+              <p>${new Date()}</p>`)
+  );
 });
 
 app.get("/api/persons", (req, res) => {
-  if (persons) {
-    res.json(persons);
-  }
-  res.statusMessage = "List is currently empty";
-  res.status(404).end();
+  Person.find({}).then((db_data) => {
+    if (db_data.length) {
+      res.json(db_data);
+    } else {
+      res.statusMessage = "List is currently empty";
+      res.status(404).end();
+    }
+  });
 });
 
 app.post("/api/persons", (req, res) => {
@@ -75,30 +78,55 @@ app.post("/api/persons", (req, res) => {
   } else if (persons.find((p) => p.name === body.name)) {
     res.status(400).json({ error: "name must be unique" });
   } else {
-    const new_person = {
+    const new_person = new Person({
       name: body.name,
       number: body.number,
-      id: generate_id(),
-    };
-    persons = persons.concat(new_person);
-    res.status(201).json(new_person);
+    });
+    new_person.save().then((saved_person) => res.json(saved_person));
   }
 });
 
 app.get("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const person = persons.find((p) => p.id === id);
-  if (person !== undefined) {
-    res.json(person);
+  const id = req.params.id;
+  if (mongoose.isValidObjectId(id)) {
+    Person.findById(id)
+      .exec()
+      .then((person) => {
+        if (person) {
+          res.json(person);
+        }
+        res.status(404).end();
+      })
+      .catch((err) => {
+        console.log("Failed to find item ", err.message);
+        res.status(500).end();
+      });
+  } else {
+    res.statusMessage = "Invalid Id";
+    res.status(400).end();
   }
-  res.statusMessage = "Person doesn't exist";
-  res.status(404).end();
 });
 
 app.delete("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  persons = persons.filter((p) => p.id !== id);
-  res.status(204).end();
+  const id = req.params.id;
+  if (mongoose.isValidObjectId(id)) {
+    Person.findByIdAndDelete(id)
+      .exec()
+      .then((delt_status) => {
+        if (!delt_status) {
+          res.statusMessage = "Id no londer exists in database";
+          res.status(404).end();
+        }
+        res.status(204).end();
+      })
+      .catch((err) => {
+        res.statusMessage = err.message;
+        res.status(500).end();
+      });
+  } else {
+    res.statusMessage = "Invalid Id";
+    res.status(400).end();
+  }
 });
 
 const unknownEndpoint = (request, response) => {
