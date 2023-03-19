@@ -36,7 +36,7 @@ app.get("/info", (req, res) => {
   );
 });
 
-app.get("/api/persons", (req, res) => {
+app.get("/api/persons", (req, res, next) => {
   Person.find({}).then((db_data) => {
     if (db_data.length) {
       res.json(db_data);
@@ -47,40 +47,47 @@ app.get("/api/persons", (req, res) => {
   });
 });
 
-app.post("/api/persons", (req, res) => {
+app.post("/api/persons", (req, res, next) => {
   const body = req.body;
   morgan.token("body", (req, res) => JSON.stringify(req.body));
   if (!body.name || !body.number) {
     res.status(400).json({ error: "malformed request body" });
   } else {
-    Person.find({ name: body.name }).then((persons_same_name) => {
-      console.log(persons_same_name);
-      if (!persons_same_name) {
-        res.status(400).json({ error: "name must be unique" });
-      } else {
-        const new_person = new Person({
-          name: body.name,
-          number: body.number,
-        });
-        new_person.save().then((saved_person) => res.json(saved_person));
-      }
-    });
+    Person.find({ name: body.name })
+      .then((persons_same_name) => {
+        if (!persons_same_name) {
+          res.status(400).json({ error: "name must be unique" });
+        } else {
+          const new_person = new Person({
+            name: body.name,
+            number: body.number,
+          });
+          new_person
+            .save()
+            .then((saved_person) => res.json(saved_person))
+            .catch((error) => next(error));
+        }
+      })
+      .catch((error) => next(error));
   }
 });
 
-app.put("/api/persons/:id", (req, res) => {
+app.put("/api/persons/:id", (req, res, next) => {
   const id = req.params.id;
   const body = req.body;
   if (mongoose.isValidObjectId(id)) {
-    Person.findByIdAndUpdate(id, { number: req.body.number }, { new: true })
+    Person.findByIdAndUpdate(
+      id,
+      { number: req.body.number },
+      { new: true, runValidators: true }
+    )
       .exec()
       .then((data) => {
         console.log(data);
         res.status(200).json(data);
       })
       .catch((err) => {
-        console.log(err);
-        res.status(500).end();
+        next(err);
       });
   } else {
     res.statusMessage = "Id not valid";
@@ -88,7 +95,7 @@ app.put("/api/persons/:id", (req, res) => {
   }
 });
 
-app.get("/api/persons/:id", (req, res) => {
+app.get("/api/persons/:id", (req, res, next) => {
   const id = req.params.id;
   if (mongoose.isValidObjectId(id)) {
     Person.findById(id)
@@ -109,7 +116,7 @@ app.get("/api/persons/:id", (req, res) => {
   }
 });
 
-app.delete("/api/persons/:id", (req, res) => {
+app.delete("/api/persons/:id", (req, res, next) => {
   const id = req.params.id;
   if (mongoose.isValidObjectId(id)) {
     Person.findByIdAndDelete(id)
@@ -136,6 +143,19 @@ const unknownEndpoint = (request, response) => {
 };
 
 app.use(unknownEndpoint);
+
+const errorHandler = (error, req, res, next) => {
+  console.log(error.name);
+  switch (error.name) {
+    case "ValidationError":
+      res.status(400).json({
+        error: error.message,
+      });
+  }
+  next(error);
+};
+
+app.use(errorHandler);
 
 app.listen(process.env.PORT, () => {
   console.log(`Listening on port ${process.env.PORT}`);

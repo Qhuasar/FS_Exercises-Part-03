@@ -8,8 +8,19 @@ mongoose
   .catch((err) => console.log("Failed to connecto Mongo due to:", err.message));
 
 const personSchema = new mongoose.Schema({
-  name: String,
-  number: String,
+  name: {
+    type: String,
+    minLength: 3,
+    required: true,
+  },
+  number: {
+    type: String,
+    validate: {
+      validator: (value) => /[0-9]{3}-[0-9]{5}/.test(value),
+      message: (props) => `must be 8 digits and of the from 333-55555 `,
+    },
+    required: [true, "Phone number required"],
+  },
 });
 
 personSchema.set("toJSON", {
